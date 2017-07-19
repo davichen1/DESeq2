@@ -12,7 +12,7 @@ require(DESeq2)
 # Set working directory to where count files stored----
 setwd("C:/Users/davichen/Desktop/DN_Data/db_db mouse data/de_analysis")
 or
-setwd("C:/git_local/DESeq2/de_analysis")  #(for Acer PC)
+setwd("C:/git_local/DESeq2/")  #(for Acer PC)
 getwd() # to confirm wd
 
 # Import featureCounts output count, tab-delimited text file into R (use Ron's script)
@@ -47,9 +47,17 @@ dds <- DESeq2::DESeqDataSetFromMatrix(countData = dt1[, 7:14],
                                       colData = mat,
                                       design = ~ condition)
 
+
 # Differential expression analysis based on the Negative Binomial
 dds <- DESeq2::DESeq(dds)
 DESeq2::resultsNames(dds)
+
+# Pause, plot PCA on raw/log transformed counts here. Check if variability among replicates greater than variability among conditions----
+
+rld <- rlog(dds, blind = F)
+plotPCA(rld)
+# Plot dispersion estimates single model - doesn't work on 2 groups at a time out.16w for example
+plotDispEsts(dds)
 
 # Compare 2 groups at a time----
 ## a. 16-week DB vs. Control
@@ -57,6 +65,17 @@ out.16w <- DESeq2::results(dds,
                            contrast = c("condition",
                                         "16wDB",
                                         "16wC"))
+
+
+# Plot MA 16 weeks - single model
+plotMA(out.16w, ylim=c(-2,2))
+
+# Plot Frequencies of p-values for 16 weeks run as single model
+hist(out.16w$pvalue,
+     col = "grey", border = "white", 
+     xlab = "", ylab = "",
+     main = "16 week Frequencies of p-values")
+
 out.16w <- data.frame(dt1[, 1:6],
                       out.16w)
 write.csv(out.16w, 
@@ -67,11 +86,23 @@ out.21w <- DESeq2::results(dds,
                            contrast = c("condition",
                                         "21wDB",
                                         "21wC"))
+
+
+# Plot MA 21 weeks - single model
+plotMA(out.21w, ylim=c(-2,2))
+
+# Plot Frequencies of p-values for 21 weeks run as single model
+hist(out.21w$pvalue,
+     col = "grey", border = "white", 
+     xlab = "", ylab = "",
+     main = "21 week Frequencies of p-values")
+
+
 out.21w <- data.frame(dt1[, 1:6], 
                       out.21w)
 write.csv(out.21w, 
           file = "out.21w_all.csv")
-
+****************************************************************************************
 # Part II: Alternatively, run the analysis 2 treatment groups at a time (Alternate)----
 ## A. Subset 16-week data
 dt.16w <- dt1[, c(1:10)]
