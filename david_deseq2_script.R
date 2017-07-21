@@ -1,6 +1,6 @@
 # Project: BGI db-db RNA-seq project
 # Author: David Cheng & Davit Sargsyan
-# Created: 7/5/2017       Last Update: 7/9/2017
+# Created: 7/5/2017       Last Update: 7/20/2017
 #**************************************************
 # # Install DESeq from Bioconductor
 # source("https://bioconductor.org/biocLite.R")
@@ -28,10 +28,14 @@ dt1 <- read.table("combraw.count",
                   header = TRUE,
                   stringsAsFactors = FALSE)
 
-# Rename the samples
+# Rename the samples DR1 to DR8
 colnames(dt1)[7:14] <- paste("DR", 
                              1:8, 
                              sep = "")
+
+# Rename the samples 16wC_1, etc with week, genotype, and number (use this for heatmaps)
+colnames(dt1)[7:14] <- paste(c("16wC_1","16wC_2","16wDB_1","16wDB_2",
+                               "21wC_1","21wC_2","21wDB_1","21wDB_2"))
 
 # Part I: Run a single model----
 # Specify treatment groups
@@ -42,6 +46,18 @@ mat <- data.frame(condition = rep(c("16wC",
                                   each = 2),
                   batch = rep(1, 8))
 
+# Ignore: trying to give unique id's to heatmap (you have to do it at "Rename the samples" step)
+                    #mat <- data.frame(condition = c("16wC_1","16wC_2","16wDB_1","16wDB_2",
+                                "21wC_1","21wC_2","21wDB_1","21wDB_2"),batch = rep(1, 8)
+                
+
+# Specify treatment groups 2 - all controls vs all diabetics (testing)
+mat <- data.frame(condition = rep(c("Control",
+                                    "Diabetes",
+                                    "Control",
+                                    "Diabetes"),
+                                  each = 2),
+                  batch = rep(1, 8))
 # Prepare the data set
 dds <- DESeq2::DESeqDataSetFromMatrix(countData = dt1[, 7:14],
                                       colData = mat,
@@ -54,10 +70,59 @@ DESeq2::resultsNames(dds)
 
 # Pause, plot PCA on raw/log transformed counts here. Check if variability among replicates greater than variability among conditions----
 
-rld <- rlog(dds, blind = F)
+rld <- rlog(dds, blind = FALSE)
 plotPCA(rld)
 # Plot dispersion estimates single model - doesn't work on 2 groups at a time out.16w for example
 plotDispEsts(dds)
+
+# Compare Diabetes vs Control (Use if doing all controls vs all diabetes, otherwise ignore)
+out.DvsC <- DESeq2::results(dds,
+                            contrast = c("condition",
+                                         "Diabetes",
+                                         "Control"))
+out.DvsC <- data.frame(dt1[, 1:6], 
+                      out.DvsC)
+write.csv(out.DvsC, 
+          file = "out.DvsC_all.csv")
+
+# Heatmap of count matrix on Extracting transformed values for single model----
+library("pheatmap")
+select <- order(rowMeans(counts(dds,normalized=TRUE)),
+                decreasing = TRUE)[1:3000] # Can change sequence from 1:20 
+                                          # to 1:1000 or however many you want,
+                                          # but too much (24000) and it's a blur
+select
+
+df <- as.data.frame(colData(dds)[,"condition"])
+df
+
+# Rename rows in vector as.data.frame to match identically with names in column 7:14 
+## If renamed columns DR1:8
+rownames(df) <- paste(c("DR1",
+                        "DR2",
+                        "DR3",
+                        "DR4",
+                        "DR5","DR6","DR7","DR8"))
+
+## If renamed columns 16wC_1...etc
+rownames(df) <- paste(c("16wC_1","16wC_2","16wDB_1","16wDB_2",
+                        "21wC_1","21wC_2","21wDB_1","21wDB_2"))
+
+
+                  
+## Optional part of Heatmap taken from (https://www.biostars.org/p/175858/)
+nt <- normTransform(dds)
+nt
+log2.norm.counts <- assay(nt)[select,]
+
+#Continue heatmap here
+
+pheatmap(assay(rld)[select,], cluster_rows = FALSE, show_rownames = TRUE,
+         cluster_cols = FALSE, annotation_col = df)
+
+# Gives first 6 rows of sample columns (optional)
+head(assay(rld),6)
+
 
 # Compare 2 groups at a time----
 ## a. 16-week DB vs. Control
